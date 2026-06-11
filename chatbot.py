@@ -1,80 +1,82 @@
+from ollama import chat
+
+
 def get_answer(db, query, selected_file="All Files"):
 
-    docs = db.similarity_search(query, k=12)
+    try:
+        # Retrieve fewer chunks for speed
+        docs = db.similarity_search(query, k=3)
 
-    query_lower = query.lower()
+        # Filter selected file
+        if selected_file != "All Files":
+            docs = [
+                d for d in docs
+                if d.metadata.get("source") == selected_file
+            ]
 
-    # ---------- FILTER BY FILE ----------
-    if selected_file != "All Files":
-        docs = [
-            d for d in docs
-            if d.metadata.get("source") == selected_file
+        # No results
+        if not docs:
+            return {
+                "title": "No Data Found",
+                "points": ["No relevant content found in the selected document."],
+                "source": selected_file
+            }
+
+        # Build context
+        context = "\n\n".join(
+            [d.page_content for d in docs]
+        )
+
+        prompt = f"""
+You are a Smart Course Assistant.
+
+Answer ONLY using the document content provided.
+
+Rules:
+- Give direct answers.
+- For summaries, use bullet points.
+- For date questions, list dates clearly.
+- For steps/tasks, use numbered points.
+- Do not mention "context".
+- Do not say "the document does not reference".
+- If the answer is unavailable, say:
+  "Not found in the document."
+
+Document Content:
+{context}
+
+Question:
+{query}
+"""
+
+        response = chat(
+            model="qwen2.5:3b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        answer = response["message"]["content"].strip()
+
+        points = [
+            line.strip("-• ")
+            for line in answer.split("\n")
+            if line.strip()
         ]
 
-    if not docs:
         return {
-            "title": "No Data Found",
-            "points": ["No relevant content in selected file"],
-            "example": "",
-            "source": selected_file
-        }
-
-    # ---------- CLEAN TEXT ----------
-    text = " ".join([d.page_content for d in docs])
-    text = text.replace("\n", " ")
-
-    sentences = [
-        s.strip()
-        for s in text.split(".")
-        if len(s.strip()) > 40
-    ]
-
-    # ---------- SUMMARY MODE ----------
-    if "summary" in query_lower or "about" in query_lower:
-
-        unique = []
-        seen = set()
-
-        for s in sentences:
-            if s not in seen:
-                unique.append(s)
-                seen.add(s)
-
-        return {
-            "title": "📄 Document Summary",
-            "points": unique[:5],
-            "example": "",
+            "title": "Answer",
+            "points": points,
             "source": docs[0].metadata.get("source", "Unknown")
         }
 
-    # ---------- QA MODE ----------
-    scored = []
+    except Exception as e:
 
-    for s in sentences:
-        score = sum(
-            1 for w in query_lower.split()
-            if w in s.lower()
-        )
-
-        if score > 0:
-            scored.append((s, score))
-
-    scored = sorted(scored, key=lambda x: x[1], reverse=True)
-
-    unique = []
-    seen = set()
-
-    for s, _ in scored:
-        if s not in seen:
-            unique.append(s)
-            seen.add(s)
-
-    if not unique:
-        unique = sentences[:3]
-
-    return {
-        "title": unique[0][:120],
-        "points": unique[:4],
-        "example": "",
-        "source": docs[0].metadata.get("source", "Unknown")
-    }
+        return {
+            "title": "Error",
+            "points": [str(e)],
+            "source": "System"
+        }
