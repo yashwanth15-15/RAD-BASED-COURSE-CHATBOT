@@ -3,9 +3,11 @@ from file_processor import process_files
 from vector_store import create_vector_store
 from chatbot import get_answer
 from quiz_generator import generate_quiz
+from evaluator import evaluate_answer
+from agent import detect_intent
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Smart Course Assistant",
+    page_title="Uptoskills Smart Course Assistant",
     page_icon="🚀",
     layout="wide"
 )
@@ -231,7 +233,6 @@ if st.session_state.quiz:
             st.session_state.explanation = ""
 
             st.rerun()
-
 # ---------------- WELCOME ----------------
 if len(st.session_state.chat) == 0 and not st.session_state.quiz:
 
@@ -261,12 +262,24 @@ for role, msg in st.session_state.chat:
 
         with st.chat_message("assistant"):
 
-            st.markdown(f"### {msg['title']}")
+            if isinstance(msg, str):
 
-            st.caption(f"📄 Source: {msg['source']}")
+                st.markdown(msg)
 
-            for point in msg["points"]:
-                st.write(point)
+            else:
+
+                st.markdown(
+                    f"### {msg['title']}"
+                )
+
+                st.caption(
+                    f"📄 Source: {msg['source']}"
+                )
+
+                for point in msg["points"]:
+                    st.write(point)
+
+# ---------------- CHAT INPUT ----------------
 
 # ---------------- CHAT INPUT ----------------
 
@@ -280,23 +293,16 @@ if query:
 
     else:
 
-        query_lower = query.lower()
+        st.session_state.chat.append(
+            ("user", query)
+        )
 
-        quiz_keywords = [
-            "quiz",
-            "mcq",
-            "generate quiz",
-            "create quiz",
-            "quiz me",
-            "test me"
-        ]
+        with st.spinner("🤔 Thinking..."):
 
-        if any(
-            word in query_lower
-            for word in quiz_keywords
-        ):
+            intent = detect_intent(query)
 
-            with st.spinner("Generating Quiz..."):
+            # QUIZ
+            if intent == "quiz":
 
                 st.session_state.quiz = generate_quiz(
                     st.session_state.db
@@ -308,15 +314,43 @@ if query:
                 st.session_state.feedback = ""
                 st.session_state.explanation = ""
                 st.session_state.chat = []
-            st.rerun()
 
-        else:
+                st.rerun()
 
-            st.session_state.chat.append(
-                ("user", query)
-            )
+            # ASSIGNMENT EVALUATION
+            elif intent == "evaluation":
 
-            with st.spinner("🤔 Thinking..."):
+                try:
+
+                    parts = query.split("Answer:")
+
+                    question = parts[0].replace(
+                        "Question:",
+                        ""
+                    ).strip()
+
+                    student_answer = parts[1].strip()
+
+                    answer = evaluate_answer(
+                        st.session_state.db,
+                        question,
+                        student_answer
+                    )
+
+                except:
+
+                    answer = """
+⚠️ Please use this format:
+
+Question:
+What is Machine Learning?
+
+Answer:
+Machine Learning is a subset of AI that learns from data.
+"""
+
+            # NORMAL CHATBOT
+            else:
 
                 answer = get_answer(
                     st.session_state.db,
@@ -324,8 +358,8 @@ if query:
                     st.session_state.selected_file
                 )
 
-            st.session_state.chat.append(
-                ("bot", answer)
-            )
+        st.session_state.chat.append(
+            ("bot", answer)
+        )
 
-            st.rerun()
+        st.rerun()

@@ -1,6 +1,8 @@
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from pptx import Presentation
 import tempfile
 
@@ -63,8 +65,8 @@ def process_files(files):
                     )
 
     splitter = CharacterTextSplitter(
-        chunk_size=600,
-        chunk_overlap=100
+        chunk_size=800,
+        chunk_overlap=150
     )
 
     return splitter.split_documents(documents)
