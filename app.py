@@ -215,7 +215,6 @@ if st.session_state.quiz:
                     st.rerun()
     else:
 
-        st.balloons()
 
         st.success(
             f"🎉 Quiz Completed!\n\n"
@@ -322,14 +321,19 @@ if query:
 
                 try:
 
-                    parts = query.split("Answer:")
+                    query_lower = query.lower()
 
-                    question = parts[0].replace(
-                        "Question:",
-                        ""
-                    ).strip()
+                    question = query[
+                        query_lower.find("question:") + len("question:")
+                        :
+                        query_lower.find("answer:")                     
+        
+                        
+                    ].strip()
 
-                    student_answer = parts[1].strip()
+                    student_answer = query[
+                        query_lower.find("answer:") + len("answer:"):
+                    ].strip()
 
                     answer = evaluate_answer(
                         st.session_state.db,
@@ -337,16 +341,20 @@ if query:
                         student_answer
                     )
 
-                except:
+                except Exception as e:
 
-                    answer = """
-⚠️ Please use this format:
+                    answer = f"""
+⚠️ Invalid format:
+
+please use :
 
 Question:
 What is Machine Learning?
 
 Answer:
 Machine Learning is a subset of AI that learns from data.
+Error: 
+{str(e)}
 """
 
             # NORMAL CHATBOT

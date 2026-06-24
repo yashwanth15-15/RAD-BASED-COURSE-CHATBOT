@@ -1,14 +1,14 @@
 import ollama
 
-def evaluate_answer(db, student_answer):
+def evaluate_answer(db, question, student_answer):
 
     docs = db.similarity_search(
-        student_answer,
-        k=10
+        question,
+        k=2
     )
 
     context = "\n".join(
-        [doc.page_content for doc in docs]
+        [doc.page_content[:500] for doc in docs]
     )
 
     prompt = f"""
@@ -18,6 +18,9 @@ Use ONLY the provided course material.
 
 Course Material:
 {context}
+
+Question:
+{question}
 
 Student Answer:
 {student_answer}
@@ -36,8 +39,6 @@ Missing Concepts:
 
 Suggestions:
 - ...
-
-Be objective and concise.
 """
 
     response = ollama.chat(

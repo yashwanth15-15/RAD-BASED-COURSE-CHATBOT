@@ -1,17 +1,17 @@
 def detect_intent(query):
 
-    query = query.lower()
+    query_lower = query.lower()
 
     # Assignment Evaluation
     if (
-        "question:" in query
-        and "answer:" in query
+        "question:" in query_lower
+        and "answer:" in query_lower
     ):
         return "evaluation"
 
     # Quiz Generation
     if any(
-        word in query
+        word in query_lower
         for word in [
             "quiz",
             "mcq",
